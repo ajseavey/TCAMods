@@ -55,7 +55,7 @@ namespace RespawnPlanesPlugin
                     var factionSpawnAllowed = !formation.IsFactionSpecific || !(formation.Faction != __instance.Faction.Name);
                     if (factionSpawnAllowed && formation.IsSpawnAllowed) 
                     {
-                        Log.LogDebug("Spawning Formation " + formation.ToString());
+                        Log.LogDebug("Spawning Formation " + formation.Type);
                         typeof(StrategicTarget2).GetMethod("SpawnFormation", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(__instance, new object[] { formation });
                     }
                 }
@@ -64,7 +64,7 @@ namespace RespawnPlanesPlugin
                     var activeFlight = ActiveFlights[flight];
                     if (!(flight.Faction != __instance.Faction.Name) && (activeFlight == null || activeFlight.IsDestroyed))
                     {
-                        Log.LogDebug("Spawning Flight " + flight.ToString());
+                        Log.LogDebug("Spawning Flight " + flight.WingName);
                         typeof(StrategicTarget2).GetMethod("SpawnFlight", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(__instance, new object[] { flight });
                     }
                 }
