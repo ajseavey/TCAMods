@@ -15,6 +15,7 @@ namespace RespawnPlanesPlugin
     public class Plugin : BaseUnityPlugin
     {      
         static Dictionary<ArenaAirfieldFlight, UniFlight> ActiveFlights = new Dictionary<ArenaAirfieldFlight, UniFlight>();
+        static Dictionary<ArenaAirfield, float> AirfieldCooldowns = new Dictionary<ArenaAirfield, float>();
 
         static ManualLogSource Log;
 
@@ -24,7 +25,13 @@ namespace RespawnPlanesPlugin
         static bool InitializeForArena(ArenaStrategicTarget data, StrategicTarget2 __instance)
         {
             Log?.LogDebug("InitializeForArena Patch Called");
+            if (data.Airfield.RespawnTime == 0f)
+            {
+                data.Airfield.RespawnTime = data.RespawnTimer;
+            }
             __instance.AirfieldData = data.Airfield;
+            AirfieldCooldowns.Add(data.Airfield, 0f);
+            Log?.LogDebug($"Airfield Cooldown for {data.DisplayName} is {data.Airfield.RespawnTime} seconds");
             return true;
         }
 
@@ -47,29 +54,39 @@ namespace RespawnPlanesPlugin
                 return false;
             }
             ___spawnCooldown -= Time.deltaTime;
+            AirfieldCooldowns[__instance.AirfieldData] += Time.deltaTime;
 
-            if (___spawnCooldown <= 0f && !__instance.IsTargetDestroyed)
+            if (!__instance.IsTargetDestroyed)
             {
-                foreach(StrategicFormationSpawn formation in __instance.OwnedFormations)
+                if (___spawnCooldown <= 0f)
                 {
-                    var factionSpawnAllowed = !formation.IsFactionSpecific || !(formation.Faction != __instance.Faction.Name);
-                    if (factionSpawnAllowed && formation.IsSpawnAllowed) 
+                    foreach (StrategicFormationSpawn formation in __instance.OwnedFormations)
                     {
-                        Log.LogDebug("Spawning Formation " + formation.Type);
-                        typeof(StrategicTarget2).GetMethod("SpawnFormation", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(__instance, new object[] { formation });
+                        var factionSpawnAllowed = !formation.IsFactionSpecific || !(formation.Faction != __instance.Faction.Name);
+                        if (factionSpawnAllowed && formation.IsSpawnAllowed)
+                        {
+                            Log.LogDebug("Spawning Formation " + formation.Type);
+                            typeof(StrategicTarget2).GetMethod("SpawnFormation", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(__instance, new object[] { formation });
+                        }
                     }
+                    ___spawnCooldown = __instance.FormationSpawnTime;
                 }
-                foreach (ArenaAirfieldFlight flight in __instance.AirfieldData.DefensiveFlights)
+
+                if(AirfieldCooldowns[__instance.AirfieldData] > __instance.AirfieldData.RespawnTime)
                 {
-                    var activeFlight = ActiveFlights[flight];
-                    if (!(flight.Faction != __instance.Faction.Name) && (activeFlight == null || activeFlight.IsDestroyed))
+                    foreach (ArenaAirfieldFlight flight in __instance.AirfieldData.DefensiveFlights)
                     {
-                        Log.LogDebug("Spawning Flight " + flight.WingName);
-                        typeof(StrategicTarget2).GetMethod("SpawnFlight", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(__instance, new object[] { flight });
+                        var activeFlight = ActiveFlights[flight];
+                        if (!(flight.Faction != __instance.Faction.Name) && (activeFlight == null || activeFlight.IsDestroyed))
+                        {
+                            Log.LogDebug("Spawning Flight " + flight.WingName);
+                            typeof(StrategicTarget2).GetMethod("SpawnFlight", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(__instance, new object[] { flight });
+                        }
                     }
+                    AirfieldCooldowns[__instance.AirfieldData] = 0f;
                 }
-                ___spawnCooldown = __instance.FormationSpawnTime;
             }
+            
             return false;
         }
 
@@ -87,9 +104,10 @@ namespace RespawnPlanesPlugin
         private void Awake()
         {
             Log = this.Logger;
-            if (!typeof(StrategicTarget2).GetMethod("SpawnFlight", BindingFlags.NonPublic | BindingFlags.Instance).ReturnType.Equals(typeof(UniFlight)))
+            if (!typeof(StrategicTarget2).GetMethod("SpawnFlight", BindingFlags.NonPublic | BindingFlags.Instance).ReturnType.Equals(typeof(UniFlight)) 
+                || typeof(ArenaAirfield).GetField("RespawnTime", BindingFlags.Public) == null)
             {
-                Log.LogError("SpawnFlight not patched to return UniFlight. Unable to patch");
+                Log.LogError("Unable to run plugin. Make sure you're also using the patch for this mod.");
                 return;
             }
 

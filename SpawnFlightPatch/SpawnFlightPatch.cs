@@ -13,8 +13,22 @@ namespace SpawnFlightPatch
         private static ManualLogSource logger = Logger.CreateLogSource("SpawnFlightPatch");
 
         public static void Patch(AssemblyDefinition assembly)
-        {  
-            TypeDefinition StrategicTarget2 = assembly.MainModule.Types.Where(type => type.IsClass && type.Namespace == "Falcon.Game2.Arena2" && type.Name == "StrategicTarget2").First();
+        {
+            ModuleDefinition MainModule = assembly.MainModule;
+            Dictionary<string, TypeDefinition> Arena2 = MainModule.Types.Where(type => type.IsClass && type.Namespace == "Falcon.Game2.Arena2").ToDictionary(type => type.Name);
+            PatchStrategicTarget2(Arena2["StrategicTarget2"], GetUniFlightType(assembly));
+            PatchArenaAirfield(Arena2["ArenaAirfield"], MainModule);
+        }
+        
+        private static void PatchArenaAirfield(TypeDefinition ArenaAirfield, ModuleDefinition Falcon)
+        {
+            TypeReference floatType = Falcon.TypeSystem.Single;
+            FieldDefinition RespawnTime = new FieldDefinition("RespawnTime", FieldAttributes.Public, floatType);
+            ArenaAirfield.Fields.Add(RespawnTime);
+        }
+
+        private static void PatchStrategicTarget2(TypeDefinition StrategicTarget2, TypeReference UniFlight)
+        {
             if (StrategicTarget2 != null)
             {
                 logger.LogDebug("Found StrategicTarget2");
@@ -23,7 +37,6 @@ namespace SpawnFlightPatch
                 if (SpawnFlight != null)
                 {
                     logger.LogDebug("Found SpawnFlight");
-                    TypeReference UniFlight = GetUniFlightType(assembly);
                     if (SpawnFlight.ReturnType == UniFlight)
                     {
                         logger.LogInfo("Return Type Already Patched");
@@ -49,7 +62,7 @@ namespace SpawnFlightPatch
             else
             {
                 logger.LogError("Unable to find StrategicTarget2");
-            }            
+            }
             logger.LogInfo("Patch complete");
         }
 
