@@ -35,6 +35,7 @@ namespace ImprovedMouseInput
         private void Awake()
         {
             // Plugin startup logic
+            Harmony.CreateAndPatchAll(typeof(Plugin));
             Logger.LogInfo($"Plugin {PluginInfo.PLUGIN_GUID} is loaded!");
         }
     }

@@ -104,8 +104,9 @@ namespace RespawnPlanesPlugin
         private void Awake()
         {
             Log = this.Logger;
+
             if (!typeof(StrategicTarget2).GetMethod("SpawnFlight", BindingFlags.NonPublic | BindingFlags.Instance).ReturnType.Equals(typeof(UniFlight)) 
-                || typeof(ArenaAirfield).GetField("RespawnTime", BindingFlags.Public) == null)
+                || typeof(ArenaAirfield).GetField("RespawnTime", BindingFlags.Public | BindingFlags.Instance) == null)
             {
                 Log.LogError("Unable to run plugin. Make sure you're also using the patch for this mod.");
                 return;
